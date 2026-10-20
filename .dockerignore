@@ -34,7 +34,6 @@ __pycache__/
 # Repo furniture with no runtime role
 .git/
 .github/
-.claude/
 tests/
 reports/raw/
 *.md

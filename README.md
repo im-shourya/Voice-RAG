@@ -19,7 +19,7 @@ Built for HH Goa 2026 Shortlisting Task 2 by **Team 3PIXLE** · `#RAGInGoa`
 | **Index** | 18,416 chunks from five chunking strategies, 512-d static embeddings + BM25+ |
 | **Latency** | in-process P50 7.87 / P70 9.62 / P100 40.71 ms · **over real HTTP** P50 6.04 / P70 7.00 / P100 58.30 ms · both 100% inside 200 ms |
 | **STT** | Sarvam (`saaras:v3`) and ElevenLabs (`scribe_v1`), pluggable, with browser-side fallback |
-| **Answering** | extractive by default (cannot hallucinate by construction); optional Claude path |
+| **Answering** | extractive by default (cannot hallucinate by construction); optional LLM path |
 | **Tests** | 241, `pytest tests/ -q` |
 | **Full measurements** | [`reports/benchmark.md`](reports/benchmark.md) |
 
@@ -61,7 +61,7 @@ audio ──► transcribe ──► guard_input ──► classify ──► em
                           malformed)                                       │
                                                                            ▼
    answer ◄── verify ◄────────── generate ◄────────────────── retrieval_guard
-             (grounding,        (extractive, or Claude       (confidence ≥ 0.67,
+             (grounding,        (extractive, or LLM          (confidence ≥ 0.67,
               numeric,           when the budget allows)      else decline)
               citations,
               PII)
@@ -263,7 +263,7 @@ never be collected.
    in, `AskResponse` out, `RetrievedChunk`, `GroundingReport`, `GuardFinding`, `Span`. The
    LLM path returns a validated draft, not a string to be parsed.
 2. **The deadline is an input, not a hope.** `TraceRecorder.remaining_ms()` decides whether
-   the Claude path is affordable at all (floor: 1,200 ms). Below it the extractive composer
+   the LLM path is affordable at all (floor: 1,200 ms). Below it the extractive composer
    runs instead and the span is marked `degraded` — visibly, in the response the UI renders.
 3. **External calls are wrapped.** STT and the LLM get bounded retries with exponentially
    backed-off, jittered delays behind a circuit breaker (closed → open → half-open). The
@@ -362,7 +362,7 @@ questions — and the retrieval-confidence gate is what answers the second one, 
 
 So `MIN_GROUNDING_SCORE = 0.55` is a **backstop**, not a discriminator. It refuses 0 of 155
 answerable drafts, which is the correct result for a backstop and a useless one for a gate.
-It earns its place on the Claude path, where invention is possible, and through the numeric
+It earns its place on the LLM path, where invention is possible, and through the numeric
 pass on both paths. Reading the two roles as one is the mistake the module docstring exists
 to prevent.
 
@@ -537,7 +537,7 @@ first"}` while `health` → `200 {"status": "degraded", "index_loaded": false}`.
 app/
   chunking/        five strategies + the reconciliation pipeline
   retrieval/       static embedder, BM25+, vector store, hybrid fusion, index store
-  generation/      extractive composer, intent classifier, optional Claude path
+  generation/      extractive composer, intent classifier, optional LLM path
   guardrails/      input guard, output guard, shared policy regexes
   harness/         orchestrator, retry/circuit breaker, trace recorder, GC tuning
   stt/             Sarvam, ElevenLabs, provider registry

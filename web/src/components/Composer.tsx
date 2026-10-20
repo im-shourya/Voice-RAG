@@ -173,7 +173,7 @@ export function Composer({
                     option === "extractive"
                       ? "Grounded extractive composer — fits the 200 ms budget"
                       : config?.llm_available
-                        ? "Claude with forced structured output — exceeds the budget by design"
+                        ? "LLM with forced structured output — exceeds the budget by design"
                         : "No ANTHROPIC_API_KEY configured"
                   }
                   className={`px-3 py-1 font-mono font-bold border-r border-goa-dark last:border-r-0 ${
