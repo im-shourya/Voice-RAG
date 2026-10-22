@@ -1,0 +1,11 @@
+# Groups the auto-generated release notes by the label that pr-title.yml sets.
+changelog:
+  categories:
+    - title: Breaking changes
+      labels: ["release: major"]
+    - title: New features
+      labels: ["release: minor"]
+    - title: Fixes
+      labels: ["release: patch"]
+    - title: Other changes
+      labels: ["*"]
