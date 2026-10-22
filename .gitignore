@@ -44,8 +44,6 @@ Thumbs.db
 # during a save. Only the first is covered by the global ignore on one machine,
 # and a `git add -A` racing a write either fails on the vanished temp file or
 # commits local settings. A fresh clone gets neither, so cover both here.
-.claude/settings.local.json
-.claude/*.tmp.*
 
 # --- Eval harness (BeaconBandhu/rag-local-eval-loop) ---
 # A local clone of the upstream tool, kept only to diff against; not ours to ship.

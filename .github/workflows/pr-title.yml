@@ -29,6 +29,20 @@ jobs:
             exit 1
           fi
 
+      - name: Block AI attribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          commits=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --paginate \
+            --jq '.[] | .commit.message, .commit.author.name, .commit.author.email, .commit.committer.name')
+          if printf '%s\n%s\n%s\n' "$TITLE" "$BODY" "$commits" | grep -qiE 'cl[a]ude|co-authored-by'; then
+            echo "::error::The PR title, description, or a commit names an AI assistant or has a co-author line. Remove it."
+            exit 1
+          fi
+
       - name: Work out the version bump
         id: bump
         env:

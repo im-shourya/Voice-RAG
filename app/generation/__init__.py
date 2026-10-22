@@ -1,4 +1,4 @@
-"""Answer generation: extractive by default, Claude when the budget allows."""
+"""Answer generation: extractive by default, an LLM when the budget allows."""
 
 from app.generation.extractive import AnswerDraft, ExtractiveComposer
 from app.generation.intent import Intent, QueryIntent, classify
