@@ -1,0 +1,74 @@
+# On each push to main: read the commits since the last tag, work out the
+# SemVer bump, then create the tag and a GitHub release.
+# A tag is not a commit, so this does not break the "no direct commit to main" rule.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Force a bump (leave empty to work it out from commits)
+        type: choice
+        options: ["", patch, minor, major]
+        default: ""
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: version
+        env:
+          FORCE: ${{ inputs.bump }}
+        run: |
+          last=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "")
+          # With no tag yet, look only at the latest commit, so old history
+          # does not decide the first version.
+          if [ -n "$last" ]; then range="$last..HEAD"; else range="-1 HEAD"; fi
+
+          bump=none
+          rank() { case $1 in major) echo 3;; minor) echo 2;; patch) echo 1;; *) echo 0;; esac; }
+          for sha in $(git rev-list $range); do
+            b=$(git log -1 --format='%B' "$sha" | bash .github/scripts/bump-type.sh)
+            if [ "$(rank "$b")" -gt "$(rank "$bump")" ]; then bump=$b; fi
+          done
+          if [ -n "$FORCE" ]; then bump=$FORCE; fi
+
+          if [ "$bump" = none ]; then
+            echo "No feat, fix, or breaking change since ${last:-the start}. No release."
+            echo "### No release (only docs / chore / ci / test changes)" >> "$GITHUB_STEP_SUMMARY"
+            echo "next=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          IFS=. read -r major minor patch <<< "${last#v}"
+          major=${major:-0}; minor=${minor:-0}; patch=${patch:-0}
+          case $bump in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          next="v$major.$minor.$patch"
+
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "### $bump: ${last:-none} → $next" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create tag and release
+        if: steps.version.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --generate-notes

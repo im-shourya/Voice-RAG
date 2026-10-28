@@ -1,0 +1,55 @@
+# Checks the PR title and shows the release that the merge will make.
+# The squash-merge commit uses the PR title, so the title decides the version bump.
+# Rules: .github/scripts/bump-type.sh
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate title (Conventional Commits)
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|refactor|revert|docs|test|chore|ci|build|style)(\([a-z0-9-]+\))?!?: [^ ].{0,71}$'
+          if ! printf '%s\n' "$TITLE" | grep -qE "$pattern"; then
+            echo "::error::PR title must be 'type(scope): summary' (Conventional Commits, max 72 chars after the type). Got: $TITLE"
+            exit 1
+          fi
+
+      - name: Work out the version bump
+        id: bump
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          bump=$(printf '%s\n\n%s\n' "$TITLE" "$BODY" | bash .github/scripts/bump-type.sh)
+          echo "type=$bump" >> "$GITHUB_OUTPUT"
+          echo "### Release on merge: \`$bump\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Label the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BUMP: ${{ steps.bump.outputs.type }}
+        run: |
+          gh label create "release: major" --color B60205 --description "Breaking change" --force
+          gh label create "release: minor" --color 0E8A16 --description "New feature" --force
+          gh label create "release: patch" --color 1D76DB --description "Fix" --force
+          gh label create "release: none"  --color CCCCCC --description "No release" --force
+          for l in major minor patch none; do
+            [ "$l" = "$BUMP" ] || gh pr edit "$PR" --remove-label "release: $l" 2>/dev/null || true
+          done
+          gh pr edit "$PR" --add-label "release: $BUMP"
